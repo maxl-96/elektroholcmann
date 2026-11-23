@@ -235,6 +235,10 @@
   }
   form input::placeholder, form textarea::placeholder{ color:var(--steel); }
   form textarea{ resize:vertical; min-height:100px; }
+  #formStatus{ font-size:0.92rem; min-height:1.4em; }
+  #formStatus.ok{ color:var(--live); }
+  #formStatus.err{ color:#ff9b8a; }
+  form button:disabled{ opacity:0.6; cursor:wait; }
   form button{
     background:var(--live); color:var(--ink); border:none; padding:14px 26px;
     border-radius:4px; font-weight:600; font-size:0.95rem; cursor:pointer; align-self:flex-start;
@@ -304,7 +308,7 @@
 <section class="hero">
   <div class="hero-grid-bg"></div>
   <div class="container"><div class="hero-inner">
-    <div class="eyebrow"><span class="dot"></span> Elektrotechnik aus Mistelbach</div>
+    <div class="eyebrow"><span class="dot"></span> Ihr regionaler Partner in Sachen Elektrotechnik</div>
     <h1>Elektroinstallation, <span>auf die Verlass ist.</span></h1>
     <p>Von der klassischen Hausinstallation bis zur Wallbox fürs E-Auto — Elektrotechnik Holcmann plant, installiert und wartet Ihre Elektroanlagen fachgerecht und termintreu.</p>
     <div class="btn-row">
@@ -413,7 +417,9 @@
         <input type="email" name="email" placeholder="Ihre E-Mail-Adresse" required>
         <input type="tel" name="tel" placeholder="Telefonnummer (optional)">
         <textarea name="msg" placeholder="Beschreiben Sie kurz Ihr Anliegen" required></textarea>
-        <button type="submit">Anfrage senden</button>
+        <input type="text" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute; left:-9999px; opacity:0; height:0; width:0; padding:0; border:0;">
+        <button type="submit" id="formBtn">Anfrage senden</button>
+        <p id="formStatus" role="status" aria-live="polite"></p>
       </form>
     </div>
   </div>
@@ -432,13 +438,47 @@
   toggle.addEventListener('click', () => menu.classList.toggle('open'));
   menu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => menu.classList.remove('open')));
 
-  document.getElementById('contactForm').addEventListener('submit', e => {
+  const form = document.getElementById('contactForm');
+  const statusEl = document.getElementById('formStatus');
+  const btn = document.getElementById('formBtn');
+  const MAIL = 'holcmannmathias@gmail.com';
+
+  form.addEventListener('submit', async e => {
     e.preventDefault();
-    const f = e.target;
-    const body = 'Name: ' + f.name.value + '\nE-Mail: ' + f.email.value +
-                 '\nTelefon: ' + (f.tel.value || '-') + '\n\n' + f.msg.value;
-    window.location.href = 'mailto:holcmannmathias@gmail.com?subject=' +
-      encodeURIComponent('Anfrage über die Website') + '&body=' + encodeURIComponent(body);
+    if (form._honey.value) return; // Spam-Falle: Bots füllen das versteckte Feld aus
+
+    btn.disabled = true;
+    statusEl.className = '';
+    statusEl.textContent = 'Wird gesendet …';
+
+    const data = {
+      Name: form.elements['name'].value,
+      'E-Mail': form.email.value,
+      Telefon: form.tel.value || '-',
+      Nachricht: form.msg.value,
+      _subject: 'Neue Anfrage über die Website',
+      _replyto: form.email.value,
+      _template: 'table',
+      _captcha: 'false'
+    };
+
+    try {
+      const res = await fetch('https://formsubmit.co/ajax/' + MAIL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const out = await res.json();
+      if (!res.ok || out.success === 'false' || out.success === false) throw new Error();
+      form.reset();
+      statusEl.className = 'ok';
+      statusEl.textContent = 'Danke für Ihre Anfrage! Wir melden uns in Kürze.';
+    } catch (err) {
+      statusEl.className = 'err';
+      statusEl.innerHTML = 'Das Senden hat leider nicht geklappt. Bitte schreiben Sie uns direkt an <a href="mailto:' + MAIL + '" style="text-decoration:underline">' + MAIL + '</a>.';
+    } finally {
+      btn.disabled = false;
+    }
   });
 </script>
 
